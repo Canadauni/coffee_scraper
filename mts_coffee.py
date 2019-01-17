@@ -25,7 +25,7 @@ class Coffee(BaseModel):
 def cash_int(price):
     price_float = float(price)
     return int(price_float * 100)
-    
+
 def check_matchstick(item):
     if item['product_type'] == '3 x 3/4 lb bags' or item['title'] in ['Catalogue','The Bulldog','Decaf']:
         return True
@@ -34,18 +34,41 @@ def check_matchstick(item):
 
 def get_matchstick():
     try:
-        matchstick = Roaster.create(roaster='Matchstick',
+        matchstick = Roaster.create(roaster = 'Matchstick',
                              country='Canada',
                              region='British Columbia',
                              city='Vancouver')
     except:
         print('already made matchstick')
+        matchstick = Roaster.get(Roaster.roaster == 'Matchstick')
     finally:
         r = requests.get('https://matchstickyvr.com/collections/coffee/products.json')
         r_json = r.json()
         coffees = r_json['products']
         output = [coffee for coffee in coffees if not check_matchstick(coffee)]
         return matchstick, output
+
+def check_bows(item):
+    if 'Single Origin' not in item['tags']:
+        return True
+    else:
+        return False
+
+def get_bowsxarrows():
+    try:
+        bowsxarrows = Roaster.create(roaster = 'Bows & Arrows',
+                                    country='Canada',
+                                    region='British Columbia',
+                                    city='Vancouver')
+    except:
+        print('already made bows')
+        bowsxarrows = Roaster.get(Roaster.roaster == 'Bows & Arrows')
+    finally:
+        r = requests.get('https://bowsandarrows.com/collections/coffee/products.json')
+        r_json = r.json()
+        coffees = r_json['products']
+        output = [coffee for coffee in coffees if not check_bows(coffee)]
+        return bowsxarrows, output
 
 def read_desc(desc):
     desc_html = BeautifulSoup(desc, 'html.parser')
@@ -65,6 +88,7 @@ def read_desc(desc):
 
 def matchstick_scrape():
     matchstick, coffees = get_matchstick()
+    coffee_data = []
     for coffee in coffees:
         name = coffee['title']
         country = coffee['product_type']
@@ -78,10 +102,10 @@ def matchstick_scrape():
                          'tasting_notes':desc_dict['Tasting Notes'],
                          'roaster':matchstick }
         coffee_data.append(coffee_store)
-    Coffee.insert_many(coffee_data).execute()
+    Coffee.insert_many(coffee_data).on_conflict('replace').execute()
 
 # database.create_tables([Roaster, Coffee])
 # print('created tables')
-# matchstick_scrape()
+matchstick_scrape()
 
-get_matchstick()
+# get_matchstick()
