@@ -32,62 +32,59 @@ def check_matchstick(item):
     else:
         return False
 
-def get_matchstick():
-    try:
-        matchstick = Roaster.create(roaster = 'Matchstick',
-                             country='Canada',
-                             region='British Columbia',
-                             city='Vancouver')
-    except:
-        print('already made matchstick')
-        matchstick = Roaster.get(Roaster.roaster == 'Matchstick')
-    finally:
-        r = requests.get('https://matchstickyvr.com/collections/coffee/products.json')
-        r_json = r.json()
-        coffees = r_json['products']
-        output = [coffee for coffee in coffees if not check_matchstick(coffee)]
-        return matchstick, output
-
 def check_bows(item):
     if 'Single Origin' not in item['tags']:
         return True
     else:
         return False
 
-def get_bowsxarrows():
+def get_shopify(input, filter):
     try:
-        bowsxarrows = Roaster.create(roaster = 'Bows & Arrows',
-                                    country='Canada',
-                                    region='British Columbia',
-                                    city='Vancouver')
+        roast_inst = Roaster.create(roaster = input['name'],
+                                country = input['country'],
+                                region = input['region'],
+                                city = input['city'])
     except:
-        print('already made bows')
-        bowsxarrows = Roaster.get(Roaster.roaster == 'Bows & Arrows')
+        print('coffee made')
+        roast_inst = Roaster.get(Roaster.roaster == input['name'])
     finally:
-        r = requests.get('https://bowsandarrows.com/collections/coffee/products.json')
+        r = requests.get(input['url'])
         r_json = r.json()
         coffees = r_json['products']
-        output = [coffee for coffee in coffees if not check_bows(coffee)]
-        return bowsxarrows, output
+        output = [coffee for coffee in coffees if not filter(coffee)]
+        return roast_inst, output
 
 def read_desc(desc):
     desc_html = BeautifulSoup(desc, 'html.parser')
     desc_dict = dict()
-    items = desc_html.find_all('p')
+    items = desc_html.find_all('strong')
     for i in range(len(items)):
-        if i == 1:
-            continue
-        attribs = items[i].find_all('strong')
-        for attrib in attribs:
-            if attrib.nextSibling == None or attrib.nextSibling.string == None:
-                pairs = attrib.get_text().split(":")
-                desc_dict[pairs[0].strip()] = pairs[1].strip()
-            else:
-                desc_dict[attrib.get_text().strip().replace(':','')] = attrib.nextSibling.string.replace('\xa0', ' ').strip()
+        if len(items[i].get_text().strip().split(":")[1]) > 0:
+            pairs = items[i].get_text().split(":")
+            desc_dict[pairs[0].strip()] = pairs[1].strip()
+        else:
+            desc_dict[items[i].get_text().strip().replace(':','')] = items[i].nextSibling.string.replace('\xa0', ' ').strip()
     return desc_dict
 
+
+matchstick_dict = {
+    'name': 'Matchstick',
+    'country': 'Canada',
+    'region': 'British Columbia',
+    'city': 'Vancouver',
+    'url': 'https://matchstickyvr.com/collections/coffee/products.json'
+}
+
+bowsxarrows_dict = {
+    'name': 'Bows & Arrows',
+    'country': 'Canada',
+    'region': 'British Columbia',
+    'city': 'Vancouver',
+    'url': 'https://bowsandarrows.com/collections/coffee/products.json'
+}
+
 def matchstick_scrape():
-    matchstick, coffees = get_matchstick()
+    matchstick, coffees = get_shopify(matchstick_dict, check_matchstick)
     coffee_data = []
     for coffee in coffees:
         name = coffee['title']
@@ -104,8 +101,8 @@ def matchstick_scrape():
         coffee_data.append(coffee_store)
     Coffee.insert_many(coffee_data).on_conflict('replace').execute()
 
-# database.create_tables([Roaster, Coffee])
-# print('created tables')
-matchstick_scrape()
 
-# get_matchstick()
+
+database.create_tables([Roaster, Coffee])
+print('created tables')
+matchstick_scrape()
